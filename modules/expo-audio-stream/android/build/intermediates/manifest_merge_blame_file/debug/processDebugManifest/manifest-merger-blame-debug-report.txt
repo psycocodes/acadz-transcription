@@ -1,0 +1,34 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="expo.modules.audiostream" >
+4
+5    <uses-sdk android:minSdkVersion="24" />
+6
+7    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+7-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:4:5-71
+7-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:4:22-68
+8    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+8-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:5:5-77
+8-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:5:22-74
+9    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+9-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:6:5-88
+9-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:6:22-85
+10    <uses-permission android:name="android.permission.WAKE_LOCK" />
+10-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:7:5-68
+10-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:7:22-65
+11
+12    <application>
+12-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:9:5-15:19
+13        <service
+13-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:10:9-14:58
+14            android:name="expo.modules.audiostream.AudioStreamService"
+14-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:11:13-47
+15            android:enabled="true"
+15-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:12:13-35
+16            android:exported="false"
+16-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:13:13-37
+17            android:foregroundServiceType="microphone" />
+17-->/home/Mohikshit/code/root/acadz/modules/expo-audio-stream/android/src/main/AndroidManifest.xml:14:13-55
+18    </application>
+19
+20</manifest>
