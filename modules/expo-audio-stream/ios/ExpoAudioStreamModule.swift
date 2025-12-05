@@ -5,6 +5,7 @@ public class ExpoAudioStreamModule: Module {
   private var audioEngine: AVAudioEngine?
   private var inputNode: AVAudioInputNode?
   private var isRecording = false
+  private var inputGain: Float = 1.0
   
   // Audio Configuration
   private let SAMPLE_RATE: Double = 16000.0
@@ -15,6 +16,26 @@ public class ExpoAudioStreamModule: Module {
     
     Events("onAudioStream")
     
+    Function("setInputGain") { (gain: Float) in
+      self.inputGain = gain
+    }
+    
+    AsyncFunction("requestPermissions") { (promise: Promise) in
+      let session = AVAudioSession.sharedInstance()
+      switch session.recordPermission {
+      case .granted:
+        promise.resolve("GRANTED")
+      case .denied:
+        promise.resolve("DENIED")
+      case .undetermined:
+        session.requestRecordPermission { granted in
+          promise.resolve(granted ? "GRANTED" : "DENIED")
+        }
+      @unknown default:
+        promise.resolve("DENIED")
+      }
+    }
+
     AsyncFunction("startRecording") { (promise: Promise) in
       if isRecording {
         promise.reject("E_ALREADY_RECORDING", "Recording is already in progress")
@@ -84,6 +105,18 @@ public class ExpoAudioStreamModule: Module {
   }
   
   private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+    // 0. Apply Gain if buffer is Float32
+    if let floatChannelData = buffer.floatChannelData {
+        let ptr = floatChannelData.pointee
+        let frameLength = Int(buffer.frameLength)
+        for i in 0..<frameLength {
+            let sample = ptr[i]
+            let boosted = sample * inputGain
+            // Hard Clamp
+            ptr[i] = max(-1.0, min(1.0, boosted))
+        }
+    }
+      
     // 1. Convert to 16kHz Mono Int16 if needed
     // The buffer from installTap(format: nil) is usually the hardware format (e.g. 44.1kHz or 48kHz).
     // We need to convert it to 16kHz.
@@ -97,7 +130,11 @@ public class ExpoAudioStreamModule: Module {
     
     if buffer.format != targetFormat {
         if let converter = AVAudioConverter(from: buffer.format, to: targetFormat) {
-            if let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: AVAudioFrameCount(Double(buffer.frameLength) * (SAMPLE_RATE / buffer.format.sampleRate))) {
+            // Calculate output frame capacity based on sample rate ratio
+            let ratio = SAMPLE_RATE / buffer.format.sampleRate
+            let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio)
+            
+            if let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) {
                 var error: NSError? = nil
                 let inputBlock: AVAudioConverterInputBlock = { inNumPackets, outStatus in
                     outStatus.pointee = .haveData

@@ -18,6 +18,7 @@ import android.util.Base64
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -38,6 +39,7 @@ class ExpoAudioStreamModule : Module() {
   private val scope = CoroutineScope(Dispatchers.IO)
   private var audioRecord: AudioRecord? = null
   private var wakeLock: PowerManager.WakeLock? = null
+  private var inputGain: Float = 1.0f
 
   // Audio Configuration
   private val SAMPLE_RATE = 16000
@@ -50,6 +52,25 @@ class ExpoAudioStreamModule : Module() {
 
     Events("onAudioStream")
 
+    Function("setInputGain") { gain: Float ->
+      inputGain = gain
+    }
+
+    AsyncFunction("requestPermissions") { promise: Promise ->
+      val currentActivity = appContext.currentActivity
+      if (currentActivity == null) {
+        throw IllegalStateException("Current activity is null")
+      }
+
+      val permission = Manifest.permission.RECORD_AUDIO
+      if (ContextCompat.checkSelfPermission(currentActivity, permission) != PackageManager.PERMISSION_GRANTED) {
+        ActivityCompat.requestPermissions(currentActivity, arrayOf(permission), 123)
+        promise.resolve("REQUESTED")
+      } else {
+        promise.resolve("GRANTED")
+      }
+    }
+
     AsyncFunction("startRecording") { promise: Promise ->
       if (isRecording) {
         promise.reject("E_ALREADY_RECORDING", "Recording is already in progress", null)
@@ -59,7 +80,7 @@ class ExpoAudioStreamModule : Module() {
       val context = appContext.reactContext ?: throw IllegalStateException("React context is null")
 
       if (ActivityCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-        promise.reject("E_NO_PERMISSION", "RECORD_AUDIO permission not granted", null)
+        promise.reject("E_NO_PERMISSION", "Microphone permission is required. Please enable it in Settings.", null)
         return@AsyncFunction
       }
 
@@ -113,6 +134,14 @@ class ExpoAudioStreamModule : Module() {
         val readResult = audioRecord?.read(buffer, 0, buffer.size) ?: -1
         
         if (readResult > 0) {
+          // Apply Gain
+          for (i in 0 until readResult) {
+            val sample = buffer[i]
+            val boosted = (sample * inputGain).toInt()
+            // Hard Clamp
+            buffer[i] = boosted.coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+          }
+
           val base64Data = shortArrayToBase64(buffer, readResult)
           val rms = calculateRMS(buffer, readResult)
           

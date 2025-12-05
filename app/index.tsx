@@ -1,22 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  Extrapolation,
-  interpolate,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming,
-  type SharedValue
+    Extrapolation,
+    interpolate,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
+    type SharedValue
 } from 'react-native-reanimated';
-import { addAudioListener, startRecordingAsync, stopRecordingAsync, type AudioEvent } from '../modules/expo-audio-stream';
+import {
+    addAudioListener,
+    requestPermissionsAsync,
+    setInputGain,
+    startRecordingAsync,
+    stopRecordingAsync,
+    type AudioEvent
+} from '../modules/expo-audio-stream';
 
-const MAX_SAMPLES = 30;
+const MAX_SAMPLES = 50;
 
 export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gain, setGain] = useState(1.0);
   
   // Animation values
   const currentAmplitude = useSharedValue(0);
@@ -48,6 +56,21 @@ export default function App() {
         currentAmplitude.value = withTiming(0);
         visualizerData.value = new Array(MAX_SAMPLES).fill(0);
       } else {
+        // Request permissions first
+        const status = await requestPermissionsAsync();
+        
+        if (status === 'DENIED') {
+            Alert.alert("Permission Required", "Please grant microphone permission to record audio.");
+            return;
+        }
+        
+        if (status === 'REQUESTED') {
+            // On Android, the system dialog is shown, and we return immediately.
+            // We cannot start recording yet. The user must grant permission and tap Record again.
+            return;
+        }
+
+        // Status is GRANTED
         await startRecordingAsync();
         setIsRecording(true);
       }
@@ -56,6 +79,12 @@ export default function App() {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setIsRecording(false);
     }
+  };
+
+  const adjustGain = (delta: number) => {
+    const newGain = Math.max(0.1, Math.min(10.0, gain + delta));
+    setGain(newGain);
+    setInputGain(newGain);
   };
 
   // Animated styles
@@ -118,6 +147,19 @@ export default function App() {
       <View style={styles.controls}>
         {error && <Text style={styles.errorText}>{error}</Text>}
         
+        {/* Gain Controls */}
+        <View style={styles.gainContainer}>
+            <Text style={styles.gainLabel}>Input Gain: {gain.toFixed(1)}x</Text>
+            <View style={styles.gainButtons}>
+                <TouchableOpacity onPress={() => adjustGain(-0.5)} style={styles.gainButton}>
+                    <Ionicons name="remove" size={24} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => adjustGain(0.5)} style={styles.gainButton}>
+                    <Ionicons name="add" size={24} color="white" />
+                </TouchableOpacity>
+            </View>
+        </View>
+
         <TouchableOpacity 
           onPress={handleToggleRecording}
           activeOpacity={0.8}
@@ -217,13 +259,36 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   bar: {
-    width: 6,
-    borderRadius: 3,
+    width: 4,
+    borderRadius: 2,
   },
   controls: {
     padding: 40,
     alignItems: 'center',
     justifyContent: 'flex-end',
+    gap: 20,
+  },
+  gainContainer: {
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  gainLabel: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 8,
+    fontVariant: ['tabular-nums'],
+  },
+  gainButtons: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  gainButton: {
+    backgroundColor: '#333',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   recordButton: {
     width: 80,
@@ -247,7 +312,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: '#888888',
-    marginTop: 16,
+    marginTop: 0,
     fontSize: 16,
     fontWeight: '500',
   },
